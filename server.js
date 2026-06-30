@@ -165,3 +165,47 @@ app.post("/featured/remove", (req, res) => {
         res.status(500).json({ error: "Failed to remove featured content" });
     }
 });
+
+import fs from "fs";
+import path from "path";
+
+const verifiedPath = path.join(process.cwd(), "verified.json");
+
+function loadVerified() {
+    return JSON.parse(fs.readFileSync(verifiedPath, "utf8"));
+}
+
+function saveVerified(data) {
+    fs.writeFileSync(verifiedPath, JSON.stringify(data, null, 2));
+}
+
+// GET verified users
+app.get("/verified", (req, res) => {
+    res.json(loadVerified());
+});
+
+// ADD verified user
+app.post("/verified/add", (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: "Missing username" });
+
+    const data = loadVerified();
+    if (!data.verifiedUsers.includes(username)) {
+        data.verifiedUsers.push(username);
+        saveVerified(data);
+    }
+
+    res.json({ success: true });
+});
+
+// REMOVE verified user
+app.post("/verified/remove", (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: "Missing username" });
+
+    const data = loadVerified();
+    data.verifiedUsers = data.verifiedUsers.filter(u => u !== username);
+    saveVerified(data);
+
+    res.json({ success: true });
+});
