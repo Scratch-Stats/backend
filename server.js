@@ -248,3 +248,23 @@ app.post("/admins/remove", (req, res) => {
 
     res.json({ success: true });
 });
+
+const loginPath = path.join(process.cwd(), "login.json");
+
+function loadLogin() {
+    return JSON.parse(fs.readFileSync(loginPath, "utf8"));
+}
+
+app.post("/login", (req, res) => {
+    const { username, password } = req.body;
+    const loginData = loadLogin();
+
+    if (
+        username === loginData.owner.username &&
+        password === loginData.owner.password
+    ) {
+        return res.json({ success: true, token: "ADMIN_TOKEN" });
+    }
+
+    res.status(401).json({ error: "Invalid credentials" });
+});
