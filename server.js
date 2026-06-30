@@ -1,14 +1,24 @@
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
+// =========================
+// Imports (CommonJS)
+// =========================
+const express = require("express");
+const fetch = require("node-fetch");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 
+// =========================
+// App Setup
+// =========================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// Helper function to fetch from Scratch API
+// =========================
+// Helper: Fetch Scratch API
+// =========================
 async function fetchScratch(url) {
     const response = await fetch(url);
     if (!response.ok) {
@@ -17,7 +27,9 @@ async function fetchScratch(url) {
     return response.json();
 }
 
-// Search projects
+// =========================
+// Scratch Search Routes
+// =========================
 app.get("/api/search/projects", async (req, res) => {
     const { q, limit = 20 } = req.query;
     try {
@@ -30,7 +42,6 @@ app.get("/api/search/projects", async (req, res) => {
     }
 });
 
-// Search users
 app.get("/api/search/users", async (req, res) => {
     const { q, limit = 20 } = req.query;
     try {
@@ -43,12 +54,13 @@ app.get("/api/search/users", async (req, res) => {
     }
 });
 
-// Get user info
+// =========================
+// Scratch User & Project Info
+// =========================
 app.get("/api/user/:username", async (req, res) => {
-    const { username } = req.params;
     try {
         const data = await fetchScratch(
-            `https://api.scratch.mit.edu/users/${username}`
+            `https://api.scratch.mit.edu/users/${req.params.username}`
         );
         res.json(data);
     } catch (err) {
@@ -56,12 +68,10 @@ app.get("/api/user/:username", async (req, res) => {
     }
 });
 
-// Get project info
 app.get("/api/project/:id", async (req, res) => {
-    const { id } = req.params;
     try {
         const data = await fetchScratch(
-            `https://api.scratch.mit.edu/projects/${id}`
+            `https://api.scratch.mit.edu/projects/${req.params.id}`
         );
         res.json(data);
     } catch (err) {
@@ -69,195 +79,133 @@ app.get("/api/project/:id", async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Backend running on port ${PORT}`);
-});
-
-import fs from "fs";
-import path from "path";
-
-// Path to featured.json
-const featuredPath = path.join(process.cwd(), "featured.json");
-
-// Helper: Load featured data
-function loadFeatured() {
-    const raw = fs.readFileSync(featuredPath, "utf8");
-    return JSON.parse(raw);
+// =========================
+// JSON File Helpers
+// =========================
+function loadJSON(file) {
+    return JSON.parse(fs.readFileSync(path.join(process.cwd(), file), "utf8"));
 }
 
-// Helper: Save featured data
-function saveFeatured(data) {
-    fs.writeFileSync(featuredPath, JSON.stringify(data, null, 2));
+function saveJSON(file, data) {
+    fs.writeFileSync(
+        path.join(process.cwd(), file),
+        JSON.stringify(data, null, 2)
+    );
 }
 
-// ===============================
-// GET featured content
-// ===============================
+// =========================
+// Featured Content
+// =========================
 app.get("/featured", (req, res) => {
-    try {
-        const data = loadFeatured();
-        res.json(data);
-    } catch (err) {
-        console.error("Error loading featured:", err);
-        res.status(500).json({ error: "Failed to load featured content" });
-    }
+    res.json(loadJSON("featured.json"));
 });
 
-// ===============================
-// ADD featured content
-// ===============================
 app.post("/featured/add", (req, res) => {
     const { type, item } = req.body;
+    if (!type || !item) return res.status(400).json({ error: "Missing data" });
 
-    if (!type || !item) {
-        return res.status(400).json({ error: "Missing type or item" });
-    }
+    const data = loadJSON("featured.json");
 
-    try {
-        const data = loadFeatured();
+    const key =
+        type === "projects"
+            ? "featuredProjects"
+            : type === "studios"
+            ? "featuredStudios"
+            : "featuredUsers";
 
-        if (type === "projects") {
-            data.featuredProjects.unshift(item);
-            if (data.featuredProjects.length > 6) data.featuredProjects.pop();
-        }
+    data[key].unshift(item);
+    if (data[key].length > 6) data[key].pop();
 
-        if (type === "studios") {
-            data.featuredStudios.unshift(item);
-            if (data.featuredStudios.length > 6) data.featuredStudios.pop();
-        }
-
-        if (type === "users") {
-            data.featuredUsers.unshift(item);
-            if (data.featuredUsers.length > 6) data.featuredUsers.pop();
-        }
-
-        saveFeatured(data);
-        res.json({ success: true });
-
-    } catch (err) {
-        console.error("Error adding featured:", err);
-        res.status(500).json({ error: "Failed to add featured content" });
-    }
+    saveJSON("featured.json", data);
+    res.json({ success: true });
 });
 
-// ===============================
-// REMOVE featured content
-// ===============================
 app.post("/featured/remove", (req, res) => {
     const { type, index } = req.body;
+    if (index === undefined || !type)
+        return res.status(400).json({ error: "Missing data" });
 
-    if (index === undefined || !type) {
-        return res.status(400).json({ error: "Missing type or index" });
-    }
+    const data = loadJSON("featured.json");
 
-    try {
-        const data = loadFeatured();
+    const key =
+        type === "projects"
+            ? "featuredProjects"
+            : type === "studios"
+            ? "featuredStudios"
+            : "featuredUsers";
 
-        if (type === "projects") data.featuredProjects.splice(index, 1);
-        if (type === "studios") data.featuredStudios.splice(index, 1);
-        if (type === "users") data.featuredUsers.splice(index, 1);
+    data[key].splice(index, 1);
 
-        saveFeatured(data);
-        res.json({ success: true });
-
-    } catch (err) {
-        console.error("Error removing featured:", err);
-        res.status(500).json({ error: "Failed to remove featured content" });
-    }
+    saveJSON("featured.json", data);
+    res.json({ success: true });
 });
 
-import fs from "fs";
-import path from "path";
-
-const verifiedPath = path.join(process.cwd(), "verified.json");
-
-function loadVerified() {
-    return JSON.parse(fs.readFileSync(verifiedPath, "utf8"));
-}
-
-function saveVerified(data) {
-    fs.writeFileSync(verifiedPath, JSON.stringify(data, null, 2));
-}
-
-// GET verified users
+// =========================
+// Verified Users
+// =========================
 app.get("/verified", (req, res) => {
-    res.json(loadVerified());
+    res.json(loadJSON("verified.json"));
 });
 
-// ADD verified user
 app.post("/verified/add", (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: "Missing username" });
 
-    const data = loadVerified();
+    const data = loadJSON("verified.json");
     if (!data.verifiedUsers.includes(username)) {
         data.verifiedUsers.push(username);
-        saveVerified(data);
+        saveJSON("verified.json", data);
     }
 
     res.json({ success: true });
 });
 
-// REMOVE verified user
 app.post("/verified/remove", (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: "Missing username" });
 
-    const data = loadVerified();
+    const data = loadJSON("verified.json");
     data.verifiedUsers = data.verifiedUsers.filter(u => u !== username);
-    saveVerified(data);
 
+    saveJSON("verified.json", data);
     res.json({ success: true });
 });
 
-const adminsPath = path.join(process.cwd(), "admins.json");
-
-function loadAdmins() {
-    return JSON.parse(fs.readFileSync(adminsPath, "utf8"));
-}
-
-function saveAdmins(data) {
-    fs.writeFileSync(adminsPath, JSON.stringify(data, null, 2));
-}
-
-// GET admin accounts
+// =========================
+// Admin Accounts
+// =========================
 app.get("/admins", (req, res) => {
-    res.json(loadAdmins());
+    res.json(loadJSON("admins.json"));
 });
 
-// ADD admin
 app.post("/admins/add", (req, res) => {
     const { username, rank } = req.body;
     if (!username) return res.status(400).json({ error: "Missing username" });
 
-    const data = loadAdmins();
+    const data = loadJSON("admins.json");
     data.adminAccounts.push({ username, rank: rank || "Admin" });
-    saveAdmins(data);
 
+    saveJSON("admins.json", data);
     res.json({ success: true });
 });
 
-// REMOVE admin
 app.post("/admins/remove", (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: "Missing username" });
 
-    const data = loadAdmins();
+    const data = loadJSON("admins.json");
     data.adminAccounts = data.adminAccounts.filter(a => a.username !== username);
-    saveAdmins(data);
 
+    saveJSON("admins.json", data);
     res.json({ success: true });
 });
 
-const loginPath = path.join(process.cwd(), "login.json");
-
-function loadLogin() {
-    return JSON.parse(fs.readFileSync(loginPath, "utf8"));
-}
-
+// =========================
+// Secure Login
+// =========================
 app.post("/login", (req, res) => {
     const { username, password } = req.body;
-    const loginData = loadLogin();
+    const loginData = loadJSON("login.json");
 
     if (
         username === loginData.owner.username &&
@@ -267,4 +215,11 @@ app.post("/login", (req, res) => {
     }
 
     res.status(401).json({ error: "Invalid credentials" });
+});
+
+// =========================
+// Start Server
+// =========================
+app.listen(PORT, () => {
+    console.log(`Backend running on port ${PORT}`);
 });
