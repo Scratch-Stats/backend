@@ -72,3 +72,96 @@ app.get("/api/project/:id", async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Backend running on port ${PORT}`);
 });
+
+import fs from "fs";
+import path from "path";
+
+// Path to featured.json
+const featuredPath = path.join(process.cwd(), "featured.json");
+
+// Helper: Load featured data
+function loadFeatured() {
+    const raw = fs.readFileSync(featuredPath, "utf8");
+    return JSON.parse(raw);
+}
+
+// Helper: Save featured data
+function saveFeatured(data) {
+    fs.writeFileSync(featuredPath, JSON.stringify(data, null, 2));
+}
+
+// ===============================
+// GET featured content
+// ===============================
+app.get("/featured", (req, res) => {
+    try {
+        const data = loadFeatured();
+        res.json(data);
+    } catch (err) {
+        console.error("Error loading featured:", err);
+        res.status(500).json({ error: "Failed to load featured content" });
+    }
+});
+
+// ===============================
+// ADD featured content
+// ===============================
+app.post("/featured/add", (req, res) => {
+    const { type, item } = req.body;
+
+    if (!type || !item) {
+        return res.status(400).json({ error: "Missing type or item" });
+    }
+
+    try {
+        const data = loadFeatured();
+
+        if (type === "projects") {
+            data.featuredProjects.unshift(item);
+            if (data.featuredProjects.length > 6) data.featuredProjects.pop();
+        }
+
+        if (type === "studios") {
+            data.featuredStudios.unshift(item);
+            if (data.featuredStudios.length > 6) data.featuredStudios.pop();
+        }
+
+        if (type === "users") {
+            data.featuredUsers.unshift(item);
+            if (data.featuredUsers.length > 6) data.featuredUsers.pop();
+        }
+
+        saveFeatured(data);
+        res.json({ success: true });
+
+    } catch (err) {
+        console.error("Error adding featured:", err);
+        res.status(500).json({ error: "Failed to add featured content" });
+    }
+});
+
+// ===============================
+// REMOVE featured content
+// ===============================
+app.post("/featured/remove", (req, res) => {
+    const { type, index } = req.body;
+
+    if (index === undefined || !type) {
+        return res.status(400).json({ error: "Missing type or index" });
+    }
+
+    try {
+        const data = loadFeatured();
+
+        if (type === "projects") data.featuredProjects.splice(index, 1);
+        if (type === "studios") data.featuredStudios.splice(index, 1);
+        if (type === "users") data.featuredUsers.splice(index, 1);
+
+        saveFeatured(data);
+        res.json({ success: true });
+
+    } catch (err) {
+        console.error("Error removing featured:", err);
+        res.status(500).json({ error: "Failed to remove featured content" });
+    }
+});
