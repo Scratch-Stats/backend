@@ -209,3 +209,42 @@ app.post("/verified/remove", (req, res) => {
 
     res.json({ success: true });
 });
+
+const adminsPath = path.join(process.cwd(), "admins.json");
+
+function loadAdmins() {
+    return JSON.parse(fs.readFileSync(adminsPath, "utf8"));
+}
+
+function saveAdmins(data) {
+    fs.writeFileSync(adminsPath, JSON.stringify(data, null, 2));
+}
+
+// GET admin accounts
+app.get("/admins", (req, res) => {
+    res.json(loadAdmins());
+});
+
+// ADD admin
+app.post("/admins/add", (req, res) => {
+    const { username, rank } = req.body;
+    if (!username) return res.status(400).json({ error: "Missing username" });
+
+    const data = loadAdmins();
+    data.adminAccounts.push({ username, rank: rank || "Admin" });
+    saveAdmins(data);
+
+    res.json({ success: true });
+});
+
+// REMOVE admin
+app.post("/admins/remove", (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: "Missing username" });
+
+    const data = loadAdmins();
+    data.adminAccounts = data.adminAccounts.filter(a => a.username !== username);
+    saveAdmins(data);
+
+    res.json({ success: true });
+});
