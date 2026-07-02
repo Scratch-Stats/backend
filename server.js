@@ -230,3 +230,27 @@ app.post("/login", (req, res) => {
 app.listen(PORT, () => {
     console.log(`Backend running on port ${PORT}`);
 });
+// ===============================
+// Leaderboard
+// ===============================
+app.get("/leaderboard", async (req, res) => {
+    try {
+        const usernames = ["griffpatch", "Will_Wam", "Duke_Scratch56"]; // add more
+
+        const results = [];
+
+        for (const user of usernames) {
+            const data = await fetchScratch(`https://api.scratch.mit.edu/users/${user}`);
+            results.push({
+                username: data.username,
+                followers: data.profile?.followers || 0
+            });
+        }
+
+        results.sort((a, b) => b.followers - a.followers);
+
+        res.json(results);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
